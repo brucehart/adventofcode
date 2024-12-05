@@ -45,7 +45,7 @@ struct Hand{
         return false;
     }
 
-    bool isFourOfAKind(){
+    bool isFourOfAKind() const {
         for(auto p : cardCount){
             if(p.second == 4){
                 return true;
@@ -93,7 +93,9 @@ struct Hand{
 
     int handRank() const {
         if(isFiveOfAKind())
-            return 5;            
+            return 6;    
+        if(isFourOfAKind())
+            return 5;
         if(isFullHouse())
             return 4;
         if(isThreeOfAKind())
@@ -124,10 +126,16 @@ int main(){
     }
 
     std::sort(hands.begin(), hands.end(), [](const Hand& a, const Hand& b) -> bool {
-        return Hand::compare(a, b);
+        return Hand::compare(b, a); //swap b and a to sort in descending order
     });
 
+    int handRank = 1;
+    unsigned long long totalSum = 0;
+
     for(const auto& hand : hands){
-        std::cout << hand.cards << " " << hand.bid << std::endl;
+       totalSum += hand.bid * handRank;
+       handRank++;
     }
+
+    std::cout << totalSum << std::endl;
 }
