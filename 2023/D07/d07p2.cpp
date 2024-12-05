@@ -12,50 +12,56 @@ struct Hand{
 
     std::map<char, int> cardCount;
 
-    // Helper function to get the count of a specific card in a const context
-    int getCardCount(char c) const {
-        auto it = cardCount.find(c);
-        return (it != cardCount.end()) ? it->second : 0;
-    }
-
     static int cardValue(char c){
-        size_t pos = cardValues.find(c);
-        return (pos != std::string::npos) ? static_cast<int>(pos) : -1;
+        return cardValues.find(c);
     }
 
-    // Compare function to sort hands
-    static bool compare(const Hand& a, const Hand& b){
+    static bool compare(const Hand& a, const Hand& b){        
         if(a.handRank() != b.handRank()){
             return a.handRank() > b.handRank();
         }
-
-        // If ranks are equal, compare the sorted cards
-        for (size_t i = 0; i < a.cards.size() && i < b.cards.size(); i++){
-            int aVal = cardValue(a.cards[i]);
-            int bVal = cardValue(b.cards[i]);
-            if(aVal != bVal){
-                return aVal > bVal;
+        
+        for (int i = 0; i < 5; i++){
+            if(Hand::cardValue(a.cards[i]) != Hand::cardValue(b.cards[i])){                
+                return Hand::cardValue(a.cards[i]) > Hand::cardValue(b.cards[i]);
             }
         }
-
-        // If still equal, compare bids
-        return a.bid > b.bid;
+        
+        return true;
     }
 
     void countCards(){
         for(char c : cards){
             cardCount[c]++;
         }
-        // Sort the cards in descending order based on cardValue
-        std::sort(cards.begin(), cards.end(), [&](char a, char b) -> bool {
-            return cardValue(a) > cardValue(b);
-        });
+
+        std::string cardOrder = Hand::cardValues;
+        std::reverse(cardOrder.begin(), cardOrder.end());
+
+        int cardMax = 0;
+
+        for(char c : cardOrder){            
+            if(c != 'J' && cardCount[c] > cardMax){                
+                cardMax = cardCount[c];
+            }
+        }        
+
+        for(char c : cardOrder){
+            if(c != 'J' && cardCount[c] == cardMax){                
+                cardCount[c] += cardCount['J'];
+                break;
+            }
+        }
+        
+        cardCount['J'] = 0;
     }
 
     bool isFiveOfAKind() const {
+        if (cards == "JJJJJ")
+            return true;
+
         for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second + getCardCount('J') == 5){
+            if(p.second == 5){
                 return true;
             }
         }
@@ -64,8 +70,7 @@ struct Hand{
 
     bool isFourOfAKind() const {
         for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second + getCardCount('J') >= 4){
+            if(p.second == 4){
                 return true;
             }
         }
@@ -74,35 +79,16 @@ struct Hand{
 
     bool isFullHouse() const {
         bool three = false, two = false;
-        int availableJ = getCardCount('J');
-
-        // First, try to find a three-of-a-kind
         for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second + availableJ >= 3){
-                three = true;
-                availableJ -= (3 - p.second > 0) ? (3 - p.second) : 0;
-                break;
-            }
+            if(p.second == 3) three = true;
+            if(p.second == 2) two = true;
         }
-
-        // Then, try to find a pair
-        for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second + availableJ >= 2){
-                two = true;
-                availableJ -= (2 - p.second > 0) ? (2 - p.second) : 0;
-                break;
-            }
-        }
-
         return three && two;
     }
 
     bool isThreeOfAKind() const {
         for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second + getCardCount('J') >= 3){
+            if(p.second == 3){
                 return true;
             }
         }
@@ -111,17 +97,9 @@ struct Hand{
 
     bool isTwoPair() const {
         int pairs = 0;
-        int availableJ = getCardCount('J');
-
         for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second >= 2){
+            if(p.second == 2){
                 pairs++;
-            }
-            else if(p.second + availableJ >= 2){
-                pairs++;
-                availableJ -= (2 - p.second);
-                if(availableJ < 0) availableJ = 0;
             }
         }
         return pairs >= 2;
@@ -129,8 +107,7 @@ struct Hand{
 
     bool isOnePair() const {
         for(auto p : cardCount){
-            if(p.first == 'J') continue;
-            if(p.second >= 2 || (p.second + getCardCount('J') >= 2)){
+            if(p.second == 2){
                 return true;
             }
         }
@@ -156,14 +133,13 @@ struct Hand{
 };
 
 // Initialize the static member outside the struct
-const std::string Hand::cardValues = "23456789TJQKA";
+const std::string Hand::cardValues = "J23456789TQKA";
 
 int main(){
     std::string line;
     std::vector<Hand> hands;
 
     while(std::getline(std::cin, line)){
-        if(line.empty()) continue; // Skip empty lines
         std::istringstream ss(line);
         Hand h;
         ss >> h.cards;
@@ -172,15 +148,17 @@ int main(){
         hands.push_back(h);
     }
 
-    std::sort(hands.begin(), hands.end(), Hand::compare);
+    std::sort(hands.begin(), hands.end(), [](const Hand& a, const Hand& b) -> bool {
+        return Hand::compare(b, a); //swap b and a to sort in descending order
+    });
 
     int handRank = 1;
     unsigned long long totalSum = 0;
 
-    for(const auto& hand : hands){
-        totalSum += static_cast<unsigned long long>(hand.bid) * handRank;
-        handRank++;
+    for(const auto& hand : hands){       
+       totalSum += hand.bid * handRank;
+       handRank++;
     }
-
+    
     std::cout << totalSum << std::endl;
 }
