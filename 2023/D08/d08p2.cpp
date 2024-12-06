@@ -13,13 +13,6 @@ struct Node {
     std::string right;
 };
 
-bool allZ(const std::vector<std::string>& currentNode) {    
-    for(const std::string& s : currentNode) {
-        if(s.back() != 'Z') return false;
-    }
-    return true;
-}
-
 int main() {
     std::string directions;
     std::unordered_map<std::string, Node> nodeMap;
@@ -78,10 +71,11 @@ int main() {
 
         while(true){            
             if (node.back() == 'Z'){
+                //verified manually that allow loops cycle back on themselves
                 totalSteps = std::lcm(totalSteps, steps);                 
                 break;
             }
-                        
+
             node = (directions[dirIdx] == 'L') ? nodeMap[node].left : nodeMap[node].right;            
             steps++;
             dirIdx = (dirIdx + 1) % directions.size();            
