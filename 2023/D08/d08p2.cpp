@@ -74,15 +74,14 @@ int main() {
     
     for(auto node: currentNode) {            
         steps = 0;
-        dirIdx = 0;
-        std::string nodeFirst = node;
+        dirIdx = 0;       
 
         while(true){            
             if (node.back() == 'Z'){
-                totalSteps = std::lcm(totalSteps, steps);                
+                totalSteps = std::lcm(totalSteps, steps);                 
                 break;
             }
-            
+                        
             node = (directions[dirIdx] == 'L') ? nodeMap[node].left : nodeMap[node].right;            
             steps++;
             dirIdx = (dirIdx + 1) % directions.size();            
