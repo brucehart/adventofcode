@@ -1,85 +1,41 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <unordered_map>
+#include <unordered_set>
 #include <utility>
+#include <queue>
 #include <cmath>
-#include <algorithm>
 
+// Custom hash function for pair<int, int> to use in unordered_set
 struct pair_hash {
-    std::size_t operator()(const std::pair<int,int> &p) const {
-        auto h1 = std::hash<int>()(p.first);
-        auto h2 = std::hash<int>()(p.second);
-        return h1 ^ (h2 + 0x9e3779b97f4a7c16ULL + (h1 << 6) + (h1 >> 2));
+    std::size_t operator()(const std::pair<int, int>& p) const {
+        return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
     }
 };
 
-struct MoveSet {
-    int connectA;
-    int connectB;
-    char mazeChar;
+// Structure to hold the path of the loop
+struct Path {
+    std::vector<std::pair<int, int>> positions;
 };
 
-class Maze {
-public:
-    enum DIRECTIONS { NORTH=0, SOUTH=1, EAST=2, WEST=3 };
-
-    void insertRow(const std::string &row) {
-        board.emplace_back(row.begin(), row.end());
-    }
-
-    int solve() {
-        findStart();
-        if (startPos.first == -1) return 0;
-
-        // Determine S's correct symbol
-        replaceSWithCorrectSymbol();
-
-        // After replacing S, find the loop
-        auto loopPath = findLoop();
-        if (loopPath.empty()) return 0;
-
-        int R = (int)board.size();
-        int C = (int)board[0].size();
-
-        // Build polygon from loop tiles
-        // polygon vertices: (x,y) = (col+0.5, row+0.5)
-        std::vector<std::pair<double,double>> polygon;
-        for (int i = 0; i < (int)loopPath.size()-1; i++) {
-            int r = loopPath[i].first;
-            int c = loopPath[i].second;
-            polygon.push_back({c + 0.5, r + 0.5});
-        }
-
-        // Count enclosed '.' tiles
-        int enclosedCount = 0;
-        for (int i = 0; i < R; i++) {
-            for (int j = 0; j < C; j++) {
-                if (board[i][j] == '.') {
-                    double px = j + 0.5;
-                    double py = i + 0.5;
-                    if (pointInPolygon(px, py, polygon)) {
-                        enclosedCount++;
-                    }
-                }
-            }
-        }
-
-        return enclosedCount;
-    }
-
-private:
-    std::vector<std::vector<char>> board;
-    std::pair<int,int> startPos = {-1,-1};
-
-    std::vector<int> inverse = {SOUTH, NORTH, WEST, EAST};
-    std::vector<std::pair<int,int>> move = {
-        {-1,0}, // NORTH
-        {1,0},  // SOUTH
-        {0,1},  // EAST
-        {0,-1}  // WEST
+struct Maze {
+    // Define directions
+    enum DIRECTIONS { NORTH = 0, SOUTH = 1, EAST = 2, WEST = 3 };
+    std::vector<int> inverse = { SOUTH, NORTH, WEST, EAST };
+    std::vector<std::pair<int, int>> move = {
+        {-1, 0},  // NORTH
+        {1, 0},   // SOUTH
+        {0, 1},   // EAST
+        {0, -1}   // WEST
     };
 
+    struct MoveSet {
+        int connectA;
+        int connectB;
+        char mazeChar;
+    };
+
+    // Define the connections for each pipe character
     std::vector<MoveSet> mazeMoves = {
         {NORTH, SOUTH, '|'},
         {EAST, WEST, '-'},
@@ -89,170 +45,249 @@ private:
         {SOUTH, WEST, '7'}
     };
 
-    void findStart() {
-        for (int i = 0; i < (int)board.size(); i++) {
-            for (int j = 0; j < (int)board[i].size(); j++) {
-                if (board[i][j] == 'S') {
-                    startPos = {i,j};
-                    return;
-                }
-            }
-        }
+    std::vector<std::vector<char>> board;
+    std::unordered_set<std::pair<int, int>, pair_hash> visited;
+
+    std::pair<int, int> startPos;
+
+    // Get the number of rows
+    int rows() const {
+        return static_cast<int>(board.size());
     }
 
+    // Get the number of columns
+    int cols() const {
+        return (rows() > 0) ? static_cast<int>(board[0].size()) : 0;
+    }
+
+    // Safely get the character at (i, j)
     char get(int i, int j) const {
-        if (i < 0 || i >= (int)board.size() || j < 0 || j >= (int)board[0].size()) return '\0';
+        if (i < 0 || i >= rows() || j < 0 || j >= cols()) {
+            return '\0';
+        }
         return board[i][j];
     }
 
-    int getNextDirection(char pipeChar, int incomingDir) {
-        for (auto &m : mazeMoves) {
+    // Insert a row into the board
+    void insertRow(const std::string& rowData) {
+        std::vector<char> row(rowData.begin(), rowData.end());
+        board.push_back(row);
+    }
+
+    // Determine the pipe character based on two connected directions
+    char getPipeCharForDirections(int dir1, int dir2) const {
+        if ((dir1 == NORTH && dir2 == SOUTH) || (dir1 == SOUTH && dir2 == NORTH)) return '|';
+        if ((dir1 == EAST && dir2 == WEST) || (dir1 == WEST && dir2 == EAST)) return '-';
+        if ((dir1 == NORTH && dir2 == EAST) || (dir1 == EAST && dir2 == NORTH)) return 'L';
+        if ((dir1 == NORTH && dir2 == WEST) || (dir1 == WEST && dir2 == NORTH)) return 'J';
+        if ((dir1 == SOUTH && dir2 == EAST) || (dir1 == EAST && dir2 == SOUTH)) return 'F';
+        if ((dir1 == SOUTH && dir2 == WEST) || (dir1 == WEST && dir2 == SOUTH)) return '7';
+        return 'X'; // Undefined or invalid configuration
+    }
+
+    // Find 'S', determine its connections, and replace it with the correct pipe character
+    bool findStartAndReplaceS() {
+        for (int i = 0; i < rows(); ++i) {
+            for (int j = 0; j < cols(); ++j) {
+                if (get(i, j) == 'S') {
+                    startPos = {i, j};
+                    
+                    std::vector<int> startDirs;
+                    // Check all four directions for connections
+                    for (int d = 0; d < 4; ++d) {
+                        int ni = i + move[d].first;
+                        int nj = j + move[d].second;
+                        char c = get(ni, nj);
+                        if (c == '\0' || c == '.' ) continue;
+                        // Determine if the adjacent pipe connects back to 'S'
+                        int incDir = inverse[d];
+                        bool connected = false;
+                        for (const auto& m : mazeMoves) {
+                            if (m.mazeChar == c) {
+                                if (m.connectA == incDir || m.connectB == incDir) {
+                                    connected = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (connected) {
+                            startDirs.push_back(d);
+                        }
+                    }
+
+                    // 'S' should have exactly two connections in a loop
+                    if (startDirs.size() != 2) {
+                        std::cerr << "Error: 'S' does not have exactly two connections.\n";
+                        return false;
+                    }
+
+                    // Determine the pipe character for 'S' based on its connections
+                    char pipeChar = getPipeCharForDirections(startDirs[0], startDirs[1]);
+                    if (pipeChar == 'X') {
+                        std::cerr << "Error: Undefined pipe configuration for 'S'.\n";
+                        return false;
+                    }
+                    board[i][j] = pipeChar;
+                    return true;
+                }
+            }
+        }
+        std::cerr << "Error: 'S' not found in the maze.\n";
+        return false;
+    }
+
+    // Given a pipe character and an incoming direction, determine the outgoing direction
+    int getNextDirection(char pipeChar, int incomingDir) const {
+        for (const auto &m : mazeMoves) {
             if (m.mazeChar == pipeChar) {
-                if (m.connectA == incomingDir) return m.connectB;
-                if (m.connectB == incomingDir) return m.connectA;
+                if (m.connectA == incomingDir) {
+                    return m.connectB;
+                } else if (m.connectB == incomingDir) {
+                    return m.connectA;
+                }
             }
         }
-        return -1;
+        return -1; // No valid connection found
     }
 
-    std::vector<int> getPossibleDirectionsForS(int si, int sj) {
-        std::vector<int> dirs;
-        for (int d = 0; d < 4; d++) {
-            int ni = si + move[d].first;
-            int nj = sj + move[d].second;
-            char c = get(ni,nj);
-            if (c == '\0' || c == '.') continue;
-            int inc = inverse[d];
-            int out = getNextDirection(c, inc);
-            if (out != -1) dirs.push_back(d);
-        }
-        return dirs;
-    }
-
-    // Determine S's correct symbol by analyzing its connections
-    void replaceSWithCorrectSymbol() {
-        if (startPos.first == -1) return;
-        int si = startPos.first;
-        int sj = startPos.second;
-
-        auto sDirs = getPossibleDirectionsForS(si, sj);
-        if (sDirs.size() != 2) {
-            // If not exactly two directions, can't form a proper loop
-            return;
+    // Traverse the loop step-by-step and collect the path
+    int traverseLoopStepByStep(Path &path) {
+        if (!findStartAndReplaceS()) {
+            // Failed to find or replace 'S' correctly
+            return 0;
         }
 
-        // Sort to avoid confusion
-        std::sort(sDirs.begin(), sDirs.end());
+        // Initialize path with starting position
+        path.positions.emplace_back(startPos);
 
-        // sDirs contains two distinct directions, find matching pipe
-        // Directions are NORTH=0,SOUTH=1,EAST=2,WEST=3
-        // Match to pipe chars:
-        // (NORTH,SOUTH) -> '|'
-        // (EAST,WEST) -> '-'
-        // (NORTH,EAST) -> 'L'
-        // (NORTH,WEST) -> 'J'
-        // (SOUTH,EAST) -> 'F'
-        // (SOUTH,WEST) -> '7'
-
-        int d1 = sDirs[0], d2 = sDirs[1];
-        char sChar = '.';
-        if (d1 == NORTH && d2 == SOUTH) sChar = '|';
-        else if (d1 == EAST && d2 == WEST) sChar = '-';
-        else if (d1 == NORTH && d2 == EAST) sChar = 'L';
-        else if (d1 == NORTH && d2 == WEST) sChar = 'J';
-        else if (d1 == SOUTH && d2 == EAST) sChar = 'F';
-        else if (d1 == SOUTH && d2 == WEST) sChar = '7';
-
-        if (sChar != '.') {
-            board[si][sj] = sChar;
+        // Determine initial direction from the starting position
+        std::vector<int> startDirs;
+        for (int d = 0; d < 4; ++d) {
+            int ni = startPos.first + move[d].first;
+            int nj = startPos.second + move[d].second;
+            char c = get(ni, nj);
+            if (c == '\0' || c == '.' ) continue;
+            int incDir = inverse[d];
+            int outDir = getNextDirection(c, incDir);
+            if (outDir != -1) {
+                startDirs.push_back(outDir);
+            }
         }
-    }
 
-    std::vector<std::pair<int,int>> findLoop() {
-        if (startPos.first == -1) return {};
-        int si = startPos.first;
-        int sj = startPos.second;
+        if (startDirs.size() != 2) {
+            std::cerr << "Error: Starting pipe does not have exactly two connections.\n";
+            return 0;
+        }
 
-        // After replacing S, get its direction again
-        auto startDirs = getPossibleDirectionsForS(si, sj);
-        if (startDirs.empty()) return {};
-
+        // Choose one direction to start
         int currentDir = startDirs[0];
-        std::pair<int,int> pos = startPos;
-        std::unordered_map<std::pair<int,int>, bool, pair_hash> visited;
-        visited[pos] = true;
+        std::pair<int, int> currentPos = startPos;
+        std::pair<int, int> nextPos = {currentPos.first + move[currentDir].first, currentPos.second + move[currentDir].second};
+        path.positions.emplace_back(nextPos);
+        visited.insert(nextPos);
 
-        std::vector<std::pair<int,int>> path;
-        path.push_back(pos);
-        bool started = false;
+        // Previous position
+        std::pair<int, int> prevPos = currentPos;
+        currentPos = nextPos;
 
-        while (true) {
-            int ni = pos.first + move[currentDir].first;
-            int nj = pos.second + move[currentDir].second;
-            char nextTile = get(ni,nj);
-            if (nextTile == '\0' || nextTile == '.') break;
+        while (!(currentPos.first == startPos.first && currentPos.second == startPos.second)) {
+            // Determine incoming direction
+            int dx = currentPos.first - prevPos.first;
+            int dy = currentPos.second - prevPos.second;
 
-            std::pair<int,int> nextPos = {ni,nj};
-            if (nextTile == 'S') {
-                // Should no longer have 'S' at this point since replaced, but just in case:
+            int incomingDir;
+            if (dx == -1 && dy == 0) incomingDir = SOUTH;
+            else if (dx == 1 && dy == 0) incomingDir = NORTH;
+            else if (dx == 0 && dy == 1) incomingDir = WEST;
+            else if (dx == 0 && dy == -1) incomingDir = EAST;
+            else {
+                std::cerr << "Error: Invalid movement from (" << prevPos.first << "," << prevPos.second << ") to (" << currentPos.first << "," << currentPos.second << ")\n";
+                return 0;
+            }
+
+            // Get current tile's outgoing direction
+            char currentTile = get(currentPos.first, currentPos.second);
+            int outgoingDir = getNextDirection(currentTile, incomingDir);
+            if (outgoingDir == -1) {
+                std::cerr << "Error: No outgoing direction from (" << currentPos.first << "," << currentPos.second << ")\n";
+                return 0;
+            }
+
+            // Determine the next position based on outgoing direction
+            std::pair<int, int> potentialNextPos = {currentPos.first + move[outgoingDir].first, currentPos.second + move[outgoingDir].second};
+
+            // Check if we've returned to the start
+            if (potentialNextPos.first == startPos.first && potentialNextPos.second == startPos.second) {
+                path.positions.emplace_back(potentialNextPos);
                 break;
             }
 
-            if (nextTile == board[startPos.first][startPos.second] && started) {
-                // Returned to start tile
-                path.push_back(nextPos);
-                break;
+            // Check if the next position is already visited (loop integrity)
+            if (visited.find(potentialNextPos) != visited.end()) {
+                std::cerr << "Error: Encountered a previously visited tile at (" << potentialNextPos.first << "," << potentialNextPos.second << ")\n";
+                return 0;
             }
 
-            if (visited.find(nextPos)!=visited.end() && (ni!=si || nj!=sj)) break;
+            // Append to path and mark as visited
+            path.positions.emplace_back(potentialNextPos);
+            visited.insert(potentialNextPos);
 
-            int inc = inverse[currentDir];
-            int outDir = getNextDirection(nextTile, inc);
-            if (outDir == -1) break;
-
-            visited[nextPos] = true;
-            path.push_back(nextPos);
-            pos = nextPos;
-            currentDir = outDir;
-            started = true;
+            // Update previous and current positions
+            prevPos = currentPos;
+            currentPos = potentialNextPos;
         }
 
-        // Check if loop closed properly
-        if (path.empty() || path.front()!=path.back()) return {};
-        return path;
+        return path.positions.size();
     }
 
-    bool pointInPolygon(double x, double y, const std::vector<std::pair<double,double>> &polygon) {
-        int count = 0;
-        int n = (int)polygon.size();
-        for (int i = 0; i < n; i++) {
-            int j = (i+1)%n;
-            double x1 = polygon[i].first; 
-            double y1 = polygon[i].second;
-            double x2 = polygon[j].first; 
-            double y2 = polygon[j].second;
-
-            if (((y1 <= y && y < y2) || (y2 <= y && y < y1)) &&
-                (x < (x2 - x1)*(y - y1)/(y2 - y1) + x1)) {
-                count++;
-            }
+    // Compute area using Shoelace formula
+    double computeArea(const Path &path) const {
+        double area = 0.0;
+        int n = path.positions.size();
+        for(int i = 0; i < n; ++i){
+            int j = (i +1) % n;
+            area += (path.positions[i].second * path.positions[j].first) - (path.positions[j].second * path.positions[i].first);
         }
-        return (count % 2) == 1;
+        return std::abs(area) / 2.0;
+    }
+
+    // Compute inner tiles using Pick's Theorem: I = A - B/2 +1
+    int computeInnerTiles(double area, int boundaryTiles) const {
+        // According to Pick's Theorem:
+        // I = A - B/2 +1
+        double inner = area - (static_cast<double>(boundaryTiles) / 2.0) + 1.0;
+        return static_cast<int>(std::round(inner));
+    }
+
+    // Navigate the maze and collect the loop path
+    int navigateMaze(Path &path) {
+        int steps = traverseLoopStepByStep(path);
+        return steps;
     }
 };
 
-int main() {
-    std::ios::sync_with_stdio(false);
-    std::cin.tie(nullptr);
-
+int main() {    
     Maze maze;
     std::string line;
+    // Read the maze input from standard input
     while (std::getline(std::cin, line)) {
         maze.insertRow(line);
     }
 
-    int result = maze.solve();
-    std::cout << result << "\n";
+    Path path;
+    // Navigate the maze to mark the loop and collect the path
+    int steps = maze.navigateMaze(path);
+
+    if (steps == 0) {
+        std::cerr << "Failed to navigate the maze correctly.\n";
+        return 1;
+    }    
+
+    // Part 2: Compute the number of enclosed tiles using Pick's Theorem
+    double area = maze.computeArea(path);
+    int boundaryTiles = path.positions.size();
+    int innerTiles = maze.computeInnerTiles(area, boundaryTiles);
+    std::cout << innerTiles << std::endl;
 
     return 0;
 }
