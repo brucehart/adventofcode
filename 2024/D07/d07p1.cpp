@@ -66,8 +66,6 @@ int main() {
     std::for_each(equations.begin(), equations.end(), [&totalSum](Equation eq) {
         if (solveEquation(eq))
             totalSum += eq.sum;
-           
-        } 
     });
 
     std::cout << totalSum << std::endl;
