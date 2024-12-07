@@ -19,12 +19,16 @@ bool solveEquation(Equation eq, ull runningSum = 0, int startIdx = 0, Equation::
     if (startIdx == eq.elements.size()) {
         return runningSum == eq.sum;
     }
+
+    auto nextElement = [&](ull rSum) -> bool {
+        return solveEquation(eq, rSum, startIdx + 1, Equation::ADD) ||
+               solveEquation(eq, rSum, startIdx + 1, Equation::MULTIPLY) ||
+               solveEquation(eq, rSum, startIdx + 1, Equation::CONCAT);
+    };
     
     if (startIdx == 0) {
         if (startIdx > runningSum) return false;
-        return solveEquation(eq, eq.elements[startIdx], startIdx + 1, Equation::ADD) ||
-               solveEquation(eq, eq.elements[startIdx], startIdx + 1, Equation::MULTIPLY) ||
-               solveEquation(eq, eq.elements[startIdx], startIdx + 1, Equation::CONCAT);
+        return nextElement(eq.elements[startIdx]);
     }
 
     if (op == Equation::ADD)
@@ -37,11 +41,9 @@ bool solveEquation(Equation eq, ull runningSum = 0, int startIdx = 0, Equation::
         runningSum = std::stoull(runningSumStr + elementStr);
     }
 
-    //if (runningSum > eq.sum) return false;
+    if (runningSum > eq.sum) return false;
 
-    return solveEquation(eq, runningSum, startIdx + 1, Equation::ADD) ||
-           solveEquation(eq, runningSum, startIdx + 1, Equation::MULTIPLY) ||
-           solveEquation(eq, runningSum, startIdx + 1, Equation::CONCAT);   
+    return nextElement(runningSum);   
 }
 
 int main() {
