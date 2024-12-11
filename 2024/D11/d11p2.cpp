@@ -7,7 +7,7 @@
 
 using ull = unsigned long long;
 
-static const ull MAX_STEPS = 25;
+static const ull MAX_STEPS = 75;
 
 struct Stone {
     ull value;
