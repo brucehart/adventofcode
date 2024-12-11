@@ -43,15 +43,6 @@ std::vector<Stone> getInput() {
     return stones;
 }
 
-// A helper function to remove leading zeros from a numeric string.
-// If the string becomes empty, return "0".
-std::string normalizeNumericString(const std::string& s) {
-    std::size_t pos = s.find_first_not_of('0');
-    if (pos == std::string::npos) {
-        return "0"; // all zeros or empty means zero
-    }
-    return s.substr(pos);
-}
 
 ull countStones(Stone stone, std::map<Stone, ull>& memo) {
     // Use a memoization table to store previously computed results for a given stone
@@ -82,11 +73,7 @@ ull countStones(Stone stone, std::map<Stone, ull>& memo) {
         // Split the string into two halves
         std::string firstHalf = vStr.substr(0, vStr.size() / 2);
         std::string secondHalf = vStr.substr(vStr.size() / 2);
-
-        // Normalize halves to remove leading zeros
-        firstHalf = normalizeNumericString(firstHalf);
-        secondHalf = normalizeNumericString(secondHalf);
-
+        
         // Convert the halves back to ull values
         ull firstVal = std::stoull(firstHalf);
         ull secondVal = std::stoull(secondHalf);
