@@ -14,6 +14,8 @@ struct Seq {
 };
 
 // Initialize the static map
+// Reference table for look and say sequence: 
+// https://www.nathanieljohnston.com/2010/10/a-derivation-of-conways-degree-71-look-and-say-polynomial/
 static const std::map<int, Seq> seqMap = {
     {1, {"1112", {63}}},
     {2, {"1112133", {64, 62}}},
