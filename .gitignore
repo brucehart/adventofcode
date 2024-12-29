@@ -1,1 +1,5 @@
 .git-crypt
+.git-crypt/*
+*
+!*/
+!*.*
