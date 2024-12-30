@@ -96,11 +96,7 @@ aocfinish() {
         exit 1
     fi
 
-    # Build binaries
-    "$SCRIPT_PATH" build 1
-    "$SCRIPT_PATH" build 2
-
-    # Execute binaries with input and generate solution files
+    # Define input and output files
     local input_file="input-d${nn}.txt"
     local output1="solution-d${nn}p1.txt"
     local output2="solution-d${nn}p2.txt"
@@ -110,23 +106,47 @@ aocfinish() {
         exit 1
     fi
 
-    cat "$input_file" | "./d${nn}p1" > "$output1"
-    if [[ $? -eq 0 ]]; then
-        echo "Generated $output1"
+    if [[ "$nn" -eq 25 ]]; then
+        echo "Day 25 detected. Only processing Part 1."
+
+        # Build Part 1
+        "$SCRIPT_PATH" build 1
+
+        # Execute Part 1
+        cat "$input_file" | "./d${nn}p1" > "$output1"
+        if [[ $? -eq 0 ]]; then
+            echo "Generated $output1"
+        else
+            echo "Execution failed for d${nn}p1"
+            exit 1
+        fi
     else
-        echo "Execution failed for d${nn}p1"
-        exit 1
+        echo "Processing Day $nn. Building and executing both parts."
+
+        # Build Part 1 and Part 2
+        "$SCRIPT_PATH" build 1
+        "$SCRIPT_PATH" build 2
+
+        # Execute Part 1
+        cat "$input_file" | "./d${nn}p1" > "$output1"
+        if [[ $? -eq 0 ]]; then
+            echo "Generated $output1"
+        else
+            echo "Execution failed for d${nn}p1"
+            exit 1
+        fi
+
+        # Execute Part 2
+        cat "$input_file" | "./d${nn}p2" > "$output2"
+        if [[ $? -eq 0 ]]; then
+            echo "Generated $output2"
+        else
+            echo "Execution failed for d${nn}p2"
+            exit 1
+        fi
     fi
 
-    cat "$input_file" | "./d${nn}p2" > "$output2"
-    if [[ $? -eq 0 ]]; then
-        echo "Generated $output2"
-    else
-        echo "Execution failed for d${nn}p2"
-        exit 1
-    fi
-
-    # Delete binaries
+    # Delete binaries (both p1 and p2, p2 might not exist for Day 25)
     "$SCRIPT_PATH" delete
 
     # Git operations: run from the parent directory
