@@ -106,7 +106,7 @@ aocfinish() {
         exit 1
     fi
 
-    if [[ "$nn" -eq 25 ]]; then
+    if [[ "${nn}" -eq 25 ]]; then
         echo "Day 25 detected. Only processing Part 1."
 
         # Build Part 1
