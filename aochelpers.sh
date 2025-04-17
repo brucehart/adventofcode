@@ -37,7 +37,7 @@ aocbuild() {
         exit 1
     fi
 
-    g++ -O2 -o "$output_file" "$source_file"
+    g++ -O2 -std=c++2b -o "$output_file" "$source_file"
 
     # Check if the compilation was successful
     if [[ $? -eq 0 ]]; then
