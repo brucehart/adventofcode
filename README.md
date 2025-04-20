@@ -1,5 +1,5 @@
 # Advent of Code Solutions (C++)
-This repository contains my solutions to Advent of Code puzzles for the years 2015 and 2022-2024. Folders and input files exist for other years, but solutions are not yet implemented.
+This repository contains my solutions to Advent of Code puzzles for the years 2015-2016 and 2022-2024. Folders and input files exist for other years, but solutions are not yet implemented.
 
 Please note: Input files are encrypted using git-crypt due to Advent of Code's policy against sharing puzzle inputs.
 
