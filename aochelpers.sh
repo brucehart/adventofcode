@@ -106,7 +106,8 @@ aocfinish() {
         exit 1
     fi
 
-    if [[ "${nn}" -eq "25" ]]; then
+    # Compare as string to avoid leading-zero octal issues (e.g., "08")
+    if [[ "${nn}" == "25" ]]; then
         echo "Day 25 detected. Only processing Part 1."
 
         # Build Part 1
