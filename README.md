@@ -15,14 +15,13 @@ Navigate to the folder for the day of interest and run:
 This script assumes you are in a folder named D<day> (e.g., D03) and builds the executable for the specified part (1 or 2) of the day's puzzle.
 
 ### Running:
-Solutions take input from standard input (stdin). You can pipe the contents of an input file like this:
+Solutions take input from standard input (stdin).
 
-
-```cat input-d<day>.txt | ./d<day>p<part>```
+```./d<day>p<part> < input-d<day>.txt```
 
 For example:
 
-```cat input-d01.txt | ./d01p1```
+```./d01p1 < input-d01.txt```
 
 This will execute the solution for day 1, part 1 in 2024, using the contents of input-d01.txt as input.
 
