@@ -2,6 +2,33 @@
 
 # aoc.sh - A script to build, delete, and finish Advent of Code projects.
 
+# Return 0 (true) if the given year/day has a Part 2.
+aoc_has_part2() {
+    local yyyy=$1
+    local nn=$2
+
+    # Day 25 never has a Part 2 in AoC.
+    if [[ "${nn}" == "25" ]]; then
+        return 1
+    fi
+
+    # 2025 special-case: only 12 days total; day 12 has no Part 2.
+    if [[ "${yyyy}" == "2025" && "${nn}" == "12" ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
+aoc_max_day_for_year() {
+    local yyyy=$1
+    if [[ "${yyyy}" == "2025" ]]; then
+        echo "12"
+    else
+        echo "25"
+    fi
+}
+
 # Function to build the binary
 aocbuild() {
     local param=$1
@@ -26,6 +53,21 @@ aocbuild() {
     elif ! [[ $param =~ ^[0-9]+$ ]]; then
         echo "Error: Parameter must be a numeric value."
         exit 1
+    fi
+
+    # Guard against trying to build a non-existent Part 2 (AoC day/year special-cases).
+    if [[ "${param}" == "2" ]]; then
+        local parent_folder
+        parent_folder=$(basename "$(dirname "$PWD")")
+        if [[ "${parent_folder}" =~ ^[0-9]{4}$ ]]; then
+            # Normalize day number to 2 digits for comparisons (e.g., D1 -> 01).
+            local nn
+            nn=$(printf "%02d" "$n")
+            if ! aoc_has_part2 "${parent_folder}" "${nn}"; then
+                echo "Error: ${parent_folder} day ${nn} does not have a Part 2."
+                exit 1
+            fi
+        fi
     fi
 
     # Compile using g++
@@ -96,6 +138,13 @@ aocfinish() {
         exit 1
     fi
 
+    local max_day
+    max_day=$(aoc_max_day_for_year "${yyyy}")
+    if (( 10#${nn} > max_day )); then
+        echo "Error: ${yyyy} only has ${max_day} day(s); got day ${nn}."
+        exit 1
+    fi
+
     # Define input and output files
     local input_file="input-d${nn}.txt"
     local output1="solution-d${nn}p1.txt"
@@ -106,9 +155,8 @@ aocfinish() {
         exit 1
     fi
 
-    # Compare as string to avoid leading-zero octal issues (e.g., "08")
-    if [[ "${nn}" == "25" ]]; then
-        echo "Day 25 detected. Only processing Part 1."
+    if ! aoc_has_part2 "${yyyy}" "${nn}"; then
+        echo "No Part 2 for ${yyyy} day ${nn}. Only processing Part 1."
 
         # Build Part 1
         "$SCRIPT_PATH" build 1
